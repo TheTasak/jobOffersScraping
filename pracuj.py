@@ -1,6 +1,6 @@
 from selenium import webdriver
 from selenium.common.exceptions import (
-    NoSuchElementException, ElementNotInteractableException, StaleElementReferenceException, TimeoutException
+    NoSuchElementException, StaleElementReferenceException, TimeoutException
 )
 from selenium.webdriver.common.by import By
 import time
@@ -11,9 +11,10 @@ import pandas
 from utils import iterate_file, get_element_by_xpath
 
 MAX_PAGES = 100
-MAX_FILE_ITER = 1000
+MAX_FILE_ITER = 10
 FILE_PATH = "pracuj/out.csv"
 TRANSFORMED_FILE_PATH = "pracuj/transformed_out.csv"
+INDEX_FILE_PATH = "pracuj/index.csv"
 
 
 def scrap_links() -> None:
@@ -26,6 +27,7 @@ def scrap_links() -> None:
         "source": [],
     }
 
+    index = 0
     for i in range(1, MAX_PAGES + 1):
         url = f'https://it.pracuj.pl/praca?pn={i}'
 
@@ -45,17 +47,17 @@ def scrap_links() -> None:
             except (NoSuchElementException, StaleElementReferenceException) as e:
                 continue
             else:
-                num_of_elements += 1
-                data["id"].append(i)
+                data["id"].append(index)
                 data["url"].append(el_url)
                 data["created_at"].append(datetime.now())
                 data["source"].append("pracuj.pl")
+                num_of_elements += 1
+                index += 1
 
         if num_of_elements == 0:
             break
 
     df = pandas.DataFrame.from_dict(data)
-    df = df.drop_duplicates(subset=['url'], keep='first')
 
     path = FILE_PATH.split("/")
     if len(path) > 1 and not os.path.exists(path[0]):
@@ -69,6 +71,10 @@ def remove_duplicates() -> None:
     df = pandas.read_csv(FILE_PATH, sep=",")
     rows_before = df.shape[0]
 
+    df = df.drop_duplicates(subset=['url'], keep='first')
+    # Remove url parameters
+    df["url"] = df["url"].apply(lambda x: x[:x.find("?")])
+    # Remove urls with wrong domain
     df = df[df["url"].str.contains("pracodawcy.pracuj.pl") == False]
     rows_after = df.shape[0]
 
@@ -153,7 +159,7 @@ def extract_posting_data(driver, data, url, index) -> None:
 
 
 def iterate_links() -> None:
-    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
+    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
 def etl() -> None:

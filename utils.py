@@ -4,11 +4,13 @@ import datetime
 import os
 import time
 from datetime import datetime, timedelta
+
+import pandas as pd
 from selenium import webdriver
 from selenium.common import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 
-DEFAULT_TEMPLATE = {
+DEFAULT_INDEX_TEMPLATE = {
     "id": [],
     "url": [],
     "job_title": [],
@@ -22,6 +24,11 @@ DEFAULT_TEMPLATE = {
     "operating_mode": [],
     "skills": [],
     "description": [],
+}
+
+DEFAULT_WRITE_TEMPLATE = {
+    "id": [],
+    "created_at": [],
 }
 
 
@@ -50,41 +57,62 @@ def save_data(write_file, data) -> None:
                   mode='a')
 
 
-def iterate_file(read_file, write_file, iterate_func, max_file_iterations=10000, template=None) -> None:
+def iterate_file(read_file, write_file, index_file, iterate_func, max_file_iterations=10000, template=None) -> None:
     if template is None:
-        template = DEFAULT_TEMPLATE
+        template = DEFAULT_INDEX_TEMPLATE
 
     driver = webdriver.Firefox()
     df = pandas.read_csv(read_file, sep=",")
-    data = copy.deepcopy(template)
     print("STARTED SCANNING...")
 
     i = 0
     sum_time = 0
     last_time = datetime.now()
 
+    try:
+        index_df = pandas.read_csv(index_file, sep=",")
+    except FileNotFoundError:
+        index_df = pd.DataFrame(columns=['id', 'url'])
+    index_data = copy.deepcopy(template)
+
+    write_data = copy.deepcopy(DEFAULT_WRITE_TEMPLATE)
+
     for index, row in df.iterrows():
         if i == max_file_iterations:
             break
 
-        iterate_func(driver, data, row["url"], i)
+        # check if url exists in index, optimize by skipping scanning of the url
+        found_rows = index_df[index_df["url"] == row["url"]]
+        if len(found_rows) > 0:
+            write_data["id"].append(found_rows["id"].iloc[0])
+            write_data["created_at"].append(datetime.now())
+        else:
+            write_data["id"].append(index_df.shape[0] + i)
+            write_data["created_at"].append(datetime.now())
+            iterate_func(driver, index_data, row["url"], index_df.shape[0] + i)
+            time.sleep(2)
         i += 1
 
         print(f'{datetime.now()} [{i}/{max_file_iterations}] SCANNED: {round(i / max_file_iterations * 100, 2)}%')
-        time.sleep(2)
 
         delta = datetime.now() - last_time
         sum_time += delta.seconds
         last_time = datetime.now()
 
-        if i % 2 == 0:
+        if i % 10 == 0:
             diff_seconds = (sum_time / i) * (max_file_iterations - i)
             end_date = datetime.now() + timedelta(seconds=diff_seconds)
             print(f'\nETC: {end_date} - {format_time(diff_seconds)} left\n')
 
         if i % 100 == 0:
-            save_data(write_file, data)
-            data = copy.deepcopy(template)
-            time.sleep(8)
-    save_data(write_file, data)
+            save_data(index_file, index_data)
+            index_data = copy.deepcopy(template)
+
+            save_data(write_file, write_data)
+            write_data = copy.deepcopy(DEFAULT_WRITE_TEMPLATE)
+
+            time.sleep(5)
+
+    save_data(index_file, index_data)
+    save_data(write_file, write_data)
     driver.quit()
