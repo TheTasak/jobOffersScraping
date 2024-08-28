@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import time
 import os
-from datetime import datetime
+from datetime import datetime, date
 import pandas
 
 from utils import iterate_file, get_element_by_xpath
@@ -14,7 +14,8 @@ from utils import iterate_file, get_element_by_xpath
 MAX_SCROLL = 100
 MAX_FILE_ITER = 20
 FILE_PATH = "solidjobs/out.csv"
-TRANSFORMED_FILE_PATH = "solidjobs/transformed_out.csv"
+TRANSFORMED_FILE_PATH = f'solidjobs/transformed_out-{date.today()}.csv'
+INDEX_FILE_PATH = "solidjobs/index.csv"
 
 
 def scrap_links() -> None:
@@ -203,7 +204,7 @@ def extract_posting_data(driver, data, url, index) -> None:
 
 
 def iterate_links() -> None:
-    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
+    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
 def etl() -> None:

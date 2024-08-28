@@ -3,16 +3,17 @@ from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 import time
-from datetime import datetime
+from datetime import datetime, date
 import os
 
 from utils import iterate_file, get_element_by_xpath
 
 
 MAX_SCROLL = 100
-MAX_FILE_ITER = 1870
+MAX_FILE_ITER = 10
 FILE_PATH = "justjoin/out.csv"
-TRANSFORMED_FILE_PATH = "justjoin/transformed_out.csv"
+TRANSFORMED_FILE_PATH = f'justjoin/transformed_out-{date.today()}.csv'
+INDEX_FILE_PATH = "justjoin/index.csv"
 
 
 def scrap_links() -> None:
@@ -57,7 +58,11 @@ def scrap_links() -> None:
 
     driver.quit()
     df = pandas.DataFrame.from_dict(data)
-    df.to_csv(FILE_PATH, index=False, mode='a', header=not os.path.exists(FILE_PATH))
+
+    path = FILE_PATH.split("/")
+    if len(path) > 1 and not os.path.exists(path[0]):
+        os.mkdir(path[0])
+    df.to_csv(FILE_PATH, index=False, mode='w', header=not os.path.exists(FILE_PATH))
 
 
 def extract_posting_data(driver, data, url, index) -> None:
@@ -133,7 +138,7 @@ def extract_posting_data(driver, data, url, index) -> None:
 
 
 def iterate_links() -> None:
-    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
+    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
 def etl() -> None:

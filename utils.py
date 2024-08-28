@@ -57,7 +57,7 @@ def save_data(write_file, data) -> None:
                   mode='a')
 
 
-def iterate_file(read_file, write_file, index_file, iterate_func, max_file_iterations=10000, template=None) -> None:
+def iterate_file(read_file: str, write_file: str, index_file: str, iterate_func, max_file_iterations=10000, template=None) -> None:
     if template is None:
         template = DEFAULT_INDEX_TEMPLATE
 
@@ -73,6 +73,10 @@ def iterate_file(read_file, write_file, index_file, iterate_func, max_file_itera
         index_df = pandas.read_csv(index_file, sep=",")
     except FileNotFoundError:
         index_df = pd.DataFrame(columns=['id', 'url'])
+        index_i = 0
+    else:
+        index_i = index_df["id"].max() + 1
+
     index_data = copy.deepcopy(template)
 
     write_data = copy.deepcopy(DEFAULT_WRITE_TEMPLATE)
@@ -87,10 +91,11 @@ def iterate_file(read_file, write_file, index_file, iterate_func, max_file_itera
             write_data["id"].append(found_rows["id"].iloc[0])
             write_data["created_at"].append(datetime.now())
         else:
-            write_data["id"].append(index_df.shape[0] + i)
+            write_data["id"].append(index_i)
             write_data["created_at"].append(datetime.now())
-            iterate_func(driver, index_data, row["url"], index_df.shape[0] + i)
+            iterate_func(driver, index_data, row["url"], index_i)
             time.sleep(2)
+            index_i += 1
         i += 1
 
         print(f'{datetime.now()} [{i}/{max_file_iterations}] SCANNED: {round(i / max_file_iterations * 100, 2)}%')

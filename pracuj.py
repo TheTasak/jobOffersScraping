@@ -5,15 +5,15 @@ from selenium.common.exceptions import (
 from selenium.webdriver.common.by import By
 import time
 import os
-from datetime import datetime
+from datetime import datetime, date
 import pandas
 
 from utils import iterate_file, get_element_by_xpath
 
 MAX_PAGES = 100
-MAX_FILE_ITER = 10
+MAX_FILE_ITER = 3000
 FILE_PATH = "pracuj/out.csv"
-TRANSFORMED_FILE_PATH = "pracuj/transformed_out.csv"
+TRANSFORMED_FILE_PATH = f'pracuj/transformed_out-{date.today()}.csv'
 INDEX_FILE_PATH = "pracuj/index.csv"
 
 

@@ -6,4 +6,4 @@ import pracuj as p
 import transform
 
 if __name__ == '__main__':
-    p.iterate_links()
+    jji.iterate_links()
