@@ -62,7 +62,7 @@ def scrap_links() -> None:
     path = FILE_PATH.split("/")
     if len(path) > 1 and not os.path.exists(path[0]):
         os.mkdir(path[0])
-    df.to_csv(FILE_PATH, index=False, mode='w', header=not os.path.exists(FILE_PATH))
+    df.to_csv(FILE_PATH, index=False, mode='w')
 
 
 def extract_posting_data(driver, data, url, index) -> None:

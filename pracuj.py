@@ -11,7 +11,7 @@ import pandas
 from utils import iterate_file, get_element_by_xpath
 
 MAX_PAGES = 100
-MAX_FILE_ITER = 3000
+MAX_FILE_ITER = 10000
 FILE_PATH = "pracuj/out.csv"
 TRANSFORMED_FILE_PATH = f'pracuj/transformed_out-{date.today()}.csv'
 INDEX_FILE_PATH = "pracuj/index.csv"
@@ -62,8 +62,7 @@ def scrap_links() -> None:
     path = FILE_PATH.split("/")
     if len(path) > 1 and not os.path.exists(path[0]):
         os.mkdir(path[0])
-    df.to_csv(FILE_PATH, index=False, mode='a', header=not os.path.exists(FILE_PATH))
-
+    df.to_csv(FILE_PATH, index=False, mode='w')
     driver.quit()
 
 
@@ -82,7 +81,7 @@ def remove_duplicates() -> None:
     print(f'Removed {rows_before - rows_after} rows')
 
 
-def extract_posting_data(driver, data, url, index) -> None:
+def extract_posting_data(driver, data: dict, url: str, index: int) -> None:
     try:
         driver.get(url)
     except TimeoutException:
@@ -113,7 +112,7 @@ def extract_posting_data(driver, data, url, index) -> None:
     location = get_element_by_xpath(driver, location_path)
     data["location"].append(location)
 
-    category_path = '//*[@id="offer-details"]/div[1]/div[4]/div/div'
+    category_path = '//*[@data-test="nested-breadcrumb"]'
     try:
         element = driver.find_elements(By.XPATH, category_path)
         category = element[-1].text if len(element) > 0 else ""
@@ -139,7 +138,7 @@ def extract_posting_data(driver, data, url, index) -> None:
     skills_expected = get_element_by_xpath(driver, skills_expected_path)
     skills_optional_path = '//*[@data-test="section-technologies-optional"]/div'
     skills_optional = get_element_by_xpath(driver, skills_optional_path)
-    skills = skills_expected + " " + skills_optional
+    skills = skills_expected + "\n" + skills_optional
     data["skills"].append(skills)
 
     description_1_path = '//*[@data-test="section-about-project"]'

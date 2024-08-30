@@ -12,7 +12,7 @@ import pandas
 from utils import iterate_file, get_element_by_xpath
 
 MAX_SCROLL = 100
-MAX_FILE_ITER = 20
+MAX_FILE_ITER = 10000
 FILE_PATH = "solidjobs/out.csv"
 TRANSFORMED_FILE_PATH = f'solidjobs/transformed_out-{date.today()}.csv'
 INDEX_FILE_PATH = "solidjobs/index.csv"

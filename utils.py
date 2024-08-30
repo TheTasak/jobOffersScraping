@@ -32,24 +32,25 @@ DEFAULT_WRITE_TEMPLATE = {
 }
 
 
-def format_time(seconds) -> str:
+def format_time(seconds: float) -> str:
     if seconds < 60:
-        return f'{seconds} seconds'
+        return f'{round(seconds, 2)} seconds'
     elif seconds < 60 * 60:
         return f'{round(seconds / 60, 2)} minutes'
     else:
         return f'{round(seconds / 3600, 2)} hours'
 
 
-def get_element_by_xpath(driver, path) -> str:
+def get_element_by_xpath(driver, path: str) -> str:
     try:
         element = driver.find_element(By.XPATH, value=path)
     except (NoSuchElementException, StaleElementReferenceException) as e:
         return ""
-    return element.text
+    else:
+        return element.text
 
 
-def save_data(write_file, data) -> None:
+def save_data(write_file: str, data: dict) -> None:
     new_df = pandas.DataFrame.from_dict(data)
     new_df.to_csv(write_file,
                   index=False,
@@ -63,6 +64,7 @@ def iterate_file(read_file: str, write_file: str, index_file: str, iterate_func,
 
     driver = webdriver.Firefox()
     df = pandas.read_csv(read_file, sep=",")
+    max_file_iterations = df.shape[0] if df.shape[0] < max_file_iterations else max_file_iterations
     print("STARTED SCANNING...")
 
     i = 0
