@@ -9,8 +9,8 @@ import os
 from utils import iterate_file, get_element_by_xpath
 
 
-MAX_SCROLL = 100
-MAX_FILE_ITER = 10
+MAX_SCROLL = 150
+MAX_FILE_ITER = 10000
 FILE_PATH = "justjoin/out.csv"
 TRANSFORMED_FILE_PATH = f'justjoin/transformed_out-{date.today()}.csv'
 INDEX_FILE_PATH = "justjoin/index.csv"
@@ -133,8 +133,18 @@ def extract_posting_data(driver, data, url, index) -> None:
     description = get_element_by_xpath(driver, description_path)
     data["description"].append(description)
 
-    data["location"].append("")
-    data["category"].append("")
+    location_path = f'//*[@id="__next"]/div[2]/div/div/div[1]/div/a[2]'
+    location = get_element_by_xpath(driver, location_path)
+    data["location"].append(location)
+
+    category_path = f'//*[@id="__next"]/div[2]/div/div/div[1]/div/a'
+    try:
+        elements = driver.find_elements(By.XPATH, value=category_path)
+        category = elements[-1].text
+    except (NoSuchElementException, StaleElementReferenceException, IndexError) as e:
+        category = ""
+
+    data["category"].append(category)
 
 
 def iterate_links() -> None:

@@ -1,10 +1,67 @@
+import csv
+
 import pandas
 import os
+from io import StringIO
+from sqlalchemy import create_engine, text
+from dotenv import find_dotenv, get_key
 
 
-def load_file(file):
+def psql_insert_copy(table, engine, keys, data_iter):
+    conn = engine.connection
+    with conn.cursor() as cur:
+        s_buf = StringIO()
+        writer = csv.writer(s_buf)
+        writer.writerows(data_iter)
+        s_buf.seek(0)
+
+        columns = ', '.join('"{}"'.format(k) for k in keys)
+        if table.schema:
+            table_name = '{}.{}'.format(table.schema, table.name)
+        else:
+            table_name = table.name
+
+        sql = 'COPY {} ({}) FROM STDIN WITH CSV'.format(table_name, columns)
+        cur.copy_expert(sql=sql, file=s_buf)
+
+
+def create_conn():
+    env = find_dotenv()
+    username = get_key(env, key_to_get="USERNAME")
+    db = get_key(env, key_to_get="DATABASE")
+    return create_engine(f'postgresql+psycopg2://{username}:@localhost:5432/{db}')
+
+
+def load_file_to_db(file: str, table: str) -> bool:
+    engine = create_conn()
+
+    if not os.path.exists(file):
+        return False
+
     df = pandas.read_csv(file, sep=",")
-    df.value_counts("company", normalize=True).to_csv("test.csv")
+    df["source"] = file.split("/")[0]
+    df.to_sql(table, engine, if_exists='append', method=psql_insert_copy)
+    return True
+
+
+def load_iterate_index_to_db(file: str, table: str) -> bool:
+    engine = create_conn()
+
+    if not os.path.exists(file):
+        return False
+
+    df = pandas.read_csv(file, sep=",")
+    df["source"] = file.split("/")[0]
+
+    conn = engine.connect()
+    result = conn.execute(text(f"SELECT max(id) FROM jobs WHERE source='{file.split("/")[0]}'"))
+    max_id = result.fetchone()[0]
+    if max_id is None:
+        max_id = -1
+    df = df[df["id"] > max_id]
+
+    df.to_sql(table, engine, if_exists='append', method=psql_insert_copy)
+    return True
 
 
 def normalize_index(file):

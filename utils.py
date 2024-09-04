@@ -73,7 +73,7 @@ def iterate_file(read_file: str, write_file: str, index_file: str, iterate_func,
 
     try:
         index_df = pandas.read_csv(index_file, sep=",")
-    except FileNotFoundError:
+    except (FileNotFoundError, pandas.errors.EmptyDataError) as e:
         index_df = pd.DataFrame(columns=['id', 'url'])
         index_i = 0
     else:
