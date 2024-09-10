@@ -1,84 +1,154 @@
 import os
+import time
 
 import requests
 import pandas
-from datetime import date
-import time
+from datetime import date, datetime
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
+from selenium.webdriver.common.by import By
 
-START_PAGE = 0
-MAX_PAGE = 100
+import transform
+from utils import iterate_file, get_element_by_xpath
+
+MAX_CLICK = 10
+MAX_FILE_ITER = 5
+FILE_PATH = "nofluffjobs/out.csv"
+TRANSFORMED_FILE_PATH = f'nofluffjobs/transformed_out-{date.today()}.csv'
+INDEX_FILE_PATH = "nofluffjobs/index.csv"
 
 
-def get_id_suffix(last_posting, current_posting) -> str:
-    last_index = 0
-    for index, element in enumerate(last_posting):
-        if len(current_posting) > index and element == current_posting[index]:
-            last_index += 1
-    return current_posting[last_index:]
-
-
-def extract_postings(response) -> int:
-    postings = response["postings"]
+def scrap_links() -> None:
+    url = "https://nofluffjobs.com/pl"
     data = {
         "id": [],
-        "locations": [],
-        "company": [],
-        "name": [],
-        "posted": [],
-        "renewed": [],
-        "remote": [],
-        "category": [],
-        "seniority": [],
-        "salary_from": [],
-        "salary_to": [],
-        "employment_type": []
+        "url": [],
+        "created_at": [],
+        "source": [],
     }
-    for posting in postings:
-        is_variant = False
-        suffix = ""
-        if len(data["id"]) > 0:
-            suffix = get_id_suffix(data["id"][-1].split("-"), posting["id"].split("-"))
-            # TODO: create a more advanced solution to detecting duplicate offers
-            is_variant = len(suffix) < (len(posting["id"].split("-")) / 5) * 3
-            suffix = "-".join(suffix)
+    index = 0
+    scroll_amount = 2000
+    current_scroll = scroll_amount
 
-        if is_variant:
-            # data["locations"][-1] += ";" + suffix
-            continue
+    driver = webdriver.Firefox()
 
-        data["id"].append(None if "id" not in posting else posting["id"])
-        data["locations"].append("")
-        data["company"].append(None if "name" not in posting else posting["name"])
-        data["name"].append(None if "title" not in posting else posting["title"])
-        data["posted"].append(None if "posted" not in posting else posting["posted"])
-        data["renewed"].append(None if "renewed" not in posting else posting["renewed"])
-        data["remote"].append(None if "fullyRemote" not in posting else posting["fullyRemote"])
-        data["category"].append(None if "category" not in posting else posting["category"])
-        data["seniority"].append(None if "seniority" not in posting else "|".join(posting["seniority"]))
-        data["salary_from"].append(None if "salary" not in posting or "from" not in posting["salary"]
-                                   else posting["salary"]["from"])
-        data["salary_to"].append(None if "salary" not in posting or "to" not in posting["salary"]
-                                 else posting["salary"]["to"])
-        data["employment_type"].append(None if "salary" not in posting or "type" not in posting["salary"]
-                                       else posting["salary"]["type"])
+    driver.get(url)
+    driver.implicitly_wait(0.5)
+
+    while True:
+        xpath = '//*[@listname="homepage_below_rozchodniak"]/div/a'
+
+        try:
+            link_elements = driver.find_elements(By.XPATH, value=xpath)
+        except (NoSuchElementException, StaleElementReferenceException) as e:
+            link_elements = []
+        else:
+            link_elements = [el.get_property("href") for el in link_elements]
+
+        for link in link_elements:
+            data["id"].append(index)
+            data["url"].append(link)
+            data["created_at"].append(datetime.now())
+            data["source"].append("nofluffjobs")
+            index += 1
+
+        button_xpath = '//nfj-homepage-listings/div[2]/button'
+        try:
+            button = driver.find_element(By.XPATH, value=button_xpath)
+        except (NoSuchElementException, StaleElementReferenceException) as e:
+            break
+        else:
+            driver.execute_script(f"window.scrollTo(0, {current_scroll})")
+            current_scroll += scroll_amount
+            driver.execute_script("arguments[0].click();", button)
+            time.sleep(2)
+
+    driver.close()
 
     df = pandas.DataFrame.from_dict(data)
-    file_path = f"out_test_{date.today()}.csv"
-    df.to_csv(file_path, index=False, mode='a', header=not os.path.exists(file_path))
-    return len(df)
+
+    path = FILE_PATH.split("/")
+    if len(path) > 1 and not os.path.exists(path[0]):
+        os.mkdir(path[0])
+    df = df.drop_duplicates(subset=["url"], keep="first")
+    df.to_csv(FILE_PATH, index=False, mode='w')
 
 
-def request_postings(index) -> any:
-    res = requests.get(f"https://nofluffjobs.com/api/joboffers/main?pageTo={index}&pageSize=20&"
-                       "withSalaryMatch=true&salaryCurrency=PLN&salaryPeriod=month&region=pl&language=pl-PL")
-    return res.json()
+def extract_posting_data(driver, data, url, index) -> None:
+    try:
+        driver.get(url)
+    except TimeoutException:
+        time.sleep(5)
+    try:
+        driver.get(url)
+    except TimeoutException:
+        return
+    driver.implicitly_wait(0.5)
+
+    data["id"].append(index)
+    data["url"].append(url)
+
+    job_title_path = '//common-posting-header/div/div/h1'
+    job_title = get_element_by_xpath(driver, job_title_path)
+    data["job_title"].append(job_title)
+
+    company_path = '//common-posting-header/div/div/a'
+    company = get_element_by_xpath(driver, company_path)
+    data["company"].append(company)
+
+    salary_path = '//common-posting-salaries-list'
+    salary = get_element_by_xpath(driver, salary_path)
+    data["salary"].append(salary)
+
+    experience_path = '//common-posting-content-wrapper/div/section[1]/ul/li[2]/div/span'
+    experience = get_element_by_xpath(driver, experience_path)
+    data["experience"].append(experience)
+
+    category_path = '//common-posting-content-wrapper/div/section[1]/ul/li[1]/div/aside/div'
+    category = get_element_by_xpath(driver, category_path)
+    data["category"].append(category)
+
+    type_of_work = ""
+    employment_type = ""
+    operating_mode = ""
+    data["type_of_work"].append(type_of_work)
+    data["employment_type"].append(employment_type)
+    data["operating_mode"].append(operating_mode)
+
+    location_path = '//common-posting-locations'
+    location = get_element_by_xpath(driver, location_path)
+    data["location"].append(location)
+
+    skills_required_path = '//*[@id="posting-requirements"]/section[1]/ul/li'
+    skills_optional_path = '//*[@id="posting-requirements"]/section[2]/ul/li'
+    try:
+        elements = driver.find_elements(By.XPATH, value=skills_required_path)
+        skills_required = ";".join([el.text for el in elements])
+    except (NoSuchElementException, StaleElementReferenceException) as e:
+        skills_required = ""
+
+    try:
+        elements = driver.find_elements(By.XPATH, value=skills_optional_path)
+        skills_optional = ";".join([el.text for el in elements])
+    except (NoSuchElementException, StaleElementReferenceException) as e:
+        skills_optional = ""
+
+    data["skills"].append("\n".join([skills_required, skills_optional]))
+
+    # description_path = f'//*[@id="__next"]/div[2]/div/div/div[2]/div[2]/div[{4 + offset}]/div[2]'
+    # description = get_element_by_xpath(driver, description_path)
+    description = ""
+    data["description"].append(description)
 
 
-def scrap_links(start=START_PAGE, amount=MAX_PAGE) -> None:
-    for i in range(start, start + amount):
-        json = request_postings(i)
-        extracted_rows = extract_postings(json)
-        print(f"EXTRACTED {i + 1}/{start + amount}: ROWS {extracted_rows}")
-        if extracted_rows == 0:
-            break
-        time.sleep(3)
+def iterate_links() -> None:
+    iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
+
+
+def etl() -> None:
+    scrap_links()
+    iterate_links()
+    status = transform.load_file_to_db(TRANSFORMED_FILE_PATH)
+    print(f'LOADING NOFLUFFJOBS TRANSFORM {"SUCCESSFUL" if status else "FAILED"}')
+    status = transform.load_iterate_index_to_db(INDEX_FILE_PATH)
+    print(f'LOADING NOFLUFFJOBS INDEX {"SUCCESSFUL" if status else "FAILED"}')

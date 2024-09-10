@@ -8,6 +8,7 @@ import os
 from datetime import datetime, date
 import pandas
 
+import transform
 from utils import iterate_file, get_element_by_xpath
 
 MAX_PAGES = 100
@@ -165,6 +166,10 @@ def etl() -> None:
     scrap_links()
     remove_duplicates()
     iterate_links()
+    status = transform.load_file_to_db(TRANSFORMED_FILE_PATH)
+    print(f'LOADING PRACUJ TRANSFORM {"SUCCESSFUL" if status else "FAILED"}')
+    status = transform.load_iterate_index_to_db(INDEX_FILE_PATH)
+    print(f'LOADING PRACUJ INDEX {"SUCCESSFUL" if status else "FAILED"}')
 
 
 if __name__ == '__main__':

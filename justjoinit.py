@@ -6,6 +6,7 @@ import time
 from datetime import datetime, date
 import os
 
+import transform
 from utils import iterate_file, get_element_by_xpath
 
 
@@ -53,7 +54,7 @@ def scrap_links() -> None:
             data["id"].append(index)
             data["url"].append(link_elements.get_attribute("href"))
             data["created_at"].append(datetime.now())
-            data["source"].append("justjoin.it")
+            data["source"].append("justjoin")
             index += 1
 
     driver.quit()
@@ -154,6 +155,10 @@ def iterate_links() -> None:
 def etl() -> None:
     scrap_links()
     iterate_links()
+    status = transform.load_file_to_db(TRANSFORMED_FILE_PATH)
+    print(f'LOADING JUSTJOIN TRANSFORM {"SUCCESSFUL" if status else "FAILED"}')
+    status = transform.load_iterate_index_to_db(INDEX_FILE_PATH)
+    print(f'LOADING JUSTJOIN INDEX {"SUCCESSFUL" if status else "FAILED"}')
 
 
 if __name__ == '__main__':
