@@ -26,8 +26,8 @@ def search_term(term: str, lang: str = 'en', conn: Connection = None):
         engine = create_conn()
         conn = engine.connect()
 
-    query = ("SELECT url, ts_rank_cd(description_search_{}, query) AS rank FROM jobs, websearch_to_tsquery('{}') query "
-             "WHERE query @@ description_search_{} ORDER BY rank DESC;").format(lang, term, lang)
+    query = ("SELECT url, ts_rank_cd(description_search_{}, query) AS rank FROM {}, websearch_to_tsquery('{}') query "
+             "WHERE query @@ description_search_{} ORDER BY rank DESC;").format(lang, INDEX_TABLE, term, lang)
     result = conn.execute(text(query))
 
     if close:
