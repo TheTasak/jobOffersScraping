@@ -50,12 +50,12 @@ def get_element_by_xpath(driver, path: str) -> str:
         return element.text
 
 
-def save_data(write_file: str, data: dict) -> None:
+def save_data(write_file: str, data: any, mode='a') -> None:
     new_df = pandas.DataFrame.from_dict(data)
     new_df.to_csv(write_file,
                   index=False,
                   header=not os.path.exists(write_file),
-                  mode='a')
+                  mode=mode)
 
 
 def iterate_file(read_file: str, write_file: str, index_file: str, iterate_func, max_file_iterations=10000, template=None) -> None:

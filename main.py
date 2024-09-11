@@ -6,6 +6,7 @@ import pracuj as p
 import threading
 from pprint import pprint
 import transform
+import utils
 
 
 def threads(pracuj=False, solidjobs=False, justjoin=False):
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     # threads(pracuj=True, justjoin=True)
     # threads(solidjobs=True)
     # save_index(pracuj=True, solidjobs=True, justjoin=True)
-    # transform.load_iterate_index_to_db("pracuj/index.csv")
-    pprint(transform.search_term("airflow", "en"))
+    # transform.search_term("airflow", "en")
+    transform.create_analyze_files()
 
 

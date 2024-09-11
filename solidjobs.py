@@ -208,6 +208,7 @@ def iterate_links() -> None:
     iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
+# TODO: Before loading to db add data cleaning stage
 def etl() -> None:
     scrap_links()
     remove_duplicates()

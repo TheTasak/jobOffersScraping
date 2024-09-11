@@ -6,6 +6,8 @@ from io import StringIO
 from sqlalchemy import create_engine, text, Connection
 from dotenv import find_dotenv, get_key
 
+import utils
+
 FILE_TABLE = 'occurrences'
 INDEX_TABLE = 'jobs'
 
@@ -18,7 +20,7 @@ def check_if_column_exists(conn: Connection, table: str, column: str) -> bool:
     return res[0]
 
 
-def search_term(term: str, lang: str = 'en', conn: Connection = None):
+def get_query_results(query: str, conn: Connection):
     close = False
 
     if conn is None:
@@ -26,14 +28,34 @@ def search_term(term: str, lang: str = 'en', conn: Connection = None):
         engine = create_conn()
         conn = engine.connect()
 
-    query = ("SELECT url, ts_rank_cd(description_search_{}, query) AS rank FROM {}, websearch_to_tsquery('{}') query "
-             "WHERE query @@ description_search_{} ORDER BY rank DESC;").format(lang, INDEX_TABLE, term, lang)
     result = conn.execute(text(query))
 
     if close:
         conn.close()
 
     return result.fetchall()
+
+
+def search_term(term: str, lang: str = 'en', conn: Connection = None):
+    query = ("SELECT url, ts_rank_cd(description_search_{}, query) AS rank FROM {}, websearch_to_tsquery('{}') query "
+             "WHERE query @@ description_search_{} ORDER BY rank DESC;").format(lang, INDEX_TABLE, term, lang)
+    return get_query_results(query, conn)
+
+
+def get_all_jobs(conn: Connection = None):
+    query = ("SELECT id, source, url, job_title, company, type_of_work, experience "
+             "FROM jobs;")
+    return get_query_results(query, conn)
+
+
+def get_all_occurrences(conn: Connection = None):
+    query = "SELECT * FROM occurrences;"
+    return get_query_results(query, conn)
+
+
+def create_analyze_files():
+    utils.save_data("test_jobs.csv", get_all_jobs(), mode='w')
+    utils.save_data("test_occurrences.csv", get_all_occurrences(), mode='w')
 
 
 def psql_insert_copy(table, engine, keys, data_iter):
