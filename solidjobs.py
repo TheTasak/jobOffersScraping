@@ -208,11 +208,34 @@ def iterate_links() -> None:
     iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
-# TODO: Before loading to db add data cleaning stage
+def transform_links() -> None:
+    df = pandas.read_csv(INDEX_FILE_PATH, sep=",")
+    df["comma_index"] = df["location"].str.rfind(',').astype(int, errors='ignore')
+    df["comma_index"] = df["comma_index"].fillna(-1)
+    df["location"] = df.apply(
+        lambda row: row["location"][int(row["comma_index"])+1:] if row["comma_index"] != -1 else row["location"], axis=1
+    )
+    df.drop(columns=["comma_index"])
+    df["location"] = df["location"].str.replace("100% zdalnie", "")
+    df["location"] = df["location"].str.replace("(", "")
+    df["location"] = df["location"].str.replace(")", "")
+    df["location"] = df["location"].str.replace("/", "")
+
+    df["location"] = df["location"].str.strip()
+
+    print(df["location"].unique())
+
+
 def etl() -> None:
+    # extract
     scrap_links()
     remove_duplicates()
     iterate_links()
+
+    # transform
+    transform_links()
+
+    # load
     status = transform.load_file_to_db(TRANSFORMED_FILE_PATH)
     print(f'LOADING SOLIDJOBS TRANSFORM {"SUCCESSFUL" if status else "FAILED"}')
     status = transform.load_iterate_index_to_db(INDEX_FILE_PATH)
