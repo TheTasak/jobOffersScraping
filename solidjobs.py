@@ -139,6 +139,9 @@ def extract_posting_data(driver, data, url, index) -> None:
     salary_path = '//offer-details-header/div/div/div[3]/div[1]'
     salary = get_element_by_xpath(driver, salary_path)
     data["salary"].append(salary)
+    data["type_of_salary"].append("")
+    data["high_salary"].append("")
+    data["low_salary"].append("")
 
     category_path = '//offer-details-header/div/div/div[2]/div[3]/solidjobs-category-display'
     category = get_element_by_xpath(driver, category_path)
@@ -188,7 +191,7 @@ def extract_posting_data(driver, data, url, index) -> None:
                 continue
             else:
                 if 0 < len(skill_level) < 4:
-                    level = levels[len(skill_level)-1]
+                    level = levels[len(skill_level) - 1]
                 else:
                     level = ""
             skills += element.text + "\n" + level + ";"
@@ -210,20 +213,41 @@ def iterate_links() -> None:
 
 def transform_links() -> None:
     df = pandas.read_csv(INDEX_FILE_PATH, sep=",")
-    df["comma_index"] = df["location"].str.rfind(',').astype(int, errors='ignore')
-    df["comma_index"] = df["comma_index"].fillna(-1)
+
+    df["location"] = df["location"].fillna("")
+    df["comma_index"] = df["location"].str.rfind(',')
     df["location"] = df.apply(
-        lambda row: row["location"][int(row["comma_index"])+1:] if row["comma_index"] != -1 else row["location"], axis=1
+        lambda row: row["location"][int(row["comma_index"]) + 1:] if row["comma_index"] != -1 else row["location"],
+        axis=1
     )
-    df.drop(columns=["comma_index"])
+    df = df.drop(columns=["comma_index"])
     df["location"] = df["location"].str.replace("100% zdalnie", "")
     df["location"] = df["location"].str.replace("(", "")
     df["location"] = df["location"].str.replace(")", "")
     df["location"] = df["location"].str.replace("/", "")
-
     df["location"] = df["location"].str.strip()
 
-    print(df["location"].unique())
+    df["type_of_salary"] = df.apply(lambda row: "netto" if str(row["salary"]).find("netto") != -1 else "brutto", axis=1)
+    df["salary"] = df["salary"].str.replace("PLN\nnetto/miesiąc", "")
+    df["salary"] = df["salary"].str.replace("PLN\nbrutto/miesiąc", "")
+    df["salary"] = df["salary"].str.strip()
+    df["low_salary"] = df.apply(lambda row: str(row["salary"]).split("–")[0], axis=1)
+    df["high_salary"] = df.apply(lambda row: str(row["salary"]).split("–")[-1], axis=1)
+    df = df.drop(columns=["salary"])
+
+    df["employment_type"] = df["employment_type"].fillna("")
+    df["employment_type"] = df.apply(
+        lambda row: "" if str(row["employment_type"]).find("/") != -1 else row["employment_type"],
+        axis=1
+    )
+
+    df["type_of_work"] = df["type_of_work"].fillna("")
+    df["type_of_work"] = df["type_of_work"].str.replace("100%", "full-time")
+    df["type_of_work"] = df["type_of_work"].str.replace("25%", "part-time")
+    df["type_of_work"] = df["type_of_work"].str.replace("50%", "part-time")
+    df["type_of_work"] = df["type_of_work"].str.replace("75%", "part-time")
+
+    df.to_csv(INDEX_FILE_PATH, index=False, header=True, mode='w')
 
 
 def etl() -> None:

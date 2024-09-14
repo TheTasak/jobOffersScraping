@@ -95,6 +95,9 @@ def extract_posting_data(driver, data, url, index) -> None:
     except (NoSuchElementException, StaleElementReferenceException) as e:
         salary = ""
     data["salary"].append(salary)
+    data["high_salary"].append("")
+    data["low_salary"].append("")
+    data["type_of_salary"].append("")
 
     widgets_path = '//*[@id="__next"]/div[2]/div/div/div[2]/div[2]/div[2]/div'
     try:
@@ -152,9 +155,65 @@ def iterate_links() -> None:
     iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
+def transform_links() -> None:
+    df = pandas.read_csv(INDEX_FILE_PATH, sep=",")
+
+    df["salary"] = df["salary"].fillna("")
+    df["type_of_salary"] = df.apply(lambda row: "netto" if str(row["salary"]).find("Net") != -1 else "brutto", axis=1)
+    df["salary_index"] = df["salary"].str.rfind("PLN")
+    df["salary"] = df.apply(
+        lambda row: row["salary"][:int(row["salary_index"])] if row["salary_index"] != -1 else "",
+        axis=1
+    )
+    df["low_salary"] = df.apply(lambda row: str(row["salary"]).split("-")[0].replace(" ", ""), axis=1)
+    df["high_salary"] = df.apply(lambda row: str(row["salary"]).split("-")[-1].replace(" ", ""), axis=1)
+    df = df.drop(columns=["salary", "salary_index"])
+
+    df["type_of_work"] = df["type_of_work"].fillna("")
+    df["type_of_work"] = df["type_of_work"].str.replace("jobtype.undetermined", "")
+
+    df["experience"] = df["experience"].fillna("")
+    df["experience"] = df["experience"].str.replace("mid", "regular")
+
+    df["operating_mode"] = df["operating_mode"].fillna("")
+
+    df["employment_type_temp"] = df["employment_type"].fillna("")
+    df["employment_type"] = ""
+    df["employment_type"] += df.apply(
+        lambda row: "B2B, " if "b2b" in row["employment_type_temp"] else "",
+        axis=1
+    )
+    df["employment_type"] += df.apply(
+        lambda row: "Umowa o pracę, " if "permanent" in row["employment_type_temp"] else "",
+        axis=1
+    )
+    df["employment_type"] += df.apply(
+        lambda row: "Umowa zlecenie, " if "mandate" in row["employment_type_temp"] else "",
+        axis=1
+    )
+    df["employment_type_index"] = df["employment_type"].str.rfind(",")
+    df["employment_type"] = df.apply(
+        lambda row: row["employment_type"][:int(row["employment_type_index"])] if row["employment_type_index"] != -1 else "",
+        axis=1
+    )
+    df["employment_type"] = df.apply(
+        lambda row: row["employment_type"] if len(row["employment_type"]) > 0 else row["employment_type_temp"],
+        axis=1
+    )
+
+    df = df.drop(columns=["employment_type_temp", "employment_type_index"])
+    print(df["employment_type"].unique())
+
+
 def etl() -> None:
+    # extract
     scrap_links()
     iterate_links()
+
+    # transform
+    transform_links()
+
+    # load
     status = transform.load_file_to_db(TRANSFORMED_FILE_PATH)
     print(f'LOADING JUSTJOIN TRANSFORM {"SUCCESSFUL" if status else "FAILED"}')
     status = transform.load_iterate_index_to_db(INDEX_FILE_PATH)
