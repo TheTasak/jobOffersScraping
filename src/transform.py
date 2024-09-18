@@ -6,7 +6,7 @@ from io import StringIO
 from sqlalchemy import create_engine, text, Connection
 from dotenv import find_dotenv, get_key
 
-import utils
+import src.utils
 
 FILE_TABLE = 'occurrences'
 INDEX_TABLE = 'jobs'

@@ -1,12 +1,9 @@
-import nofluffjobs as nfj
-import justjoinit as jji
-import solidjobs as sj
-import pracuj as p
+import src.justjoinit as jji
+import src.solidjobs as sj
+import src.pracuj as p
 
 import threading
-from pprint import pprint
-import transform
-import utils
+import src.transform
 
 
 def threads(pracuj=False, solidjobs=False, justjoin=False):
@@ -58,6 +55,6 @@ if __name__ == '__main__':
     # threads(solidjobs=True)
     # save_index(pracuj=True, solidjobs=True, justjoin=True)
     # transform.search_term("airflow", "en")
-    jji.transform_links()
+    p.iterate_links()
 
 

@@ -5,3 +5,5 @@ solidjobs/
 nofluffjobs/
 justjoin/
 .env
+src/__pycache__
+tests/__pycache__

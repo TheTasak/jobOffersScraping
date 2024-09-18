@@ -6,8 +6,8 @@ import time
 from datetime import datetime, date
 import os
 
-import transform
-from utils import iterate_file, get_element_by_xpath
+import src.transform
+from src.utils import iterate_file, get_element_by_xpath
 
 
 MAX_SCROLL = 150
@@ -159,14 +159,14 @@ def transform_links() -> None:
     df = pandas.read_csv(INDEX_FILE_PATH, sep=",")
 
     df["salary"] = df["salary"].fillna("")
-    df["type_of_salary"] = df.apply(lambda row: "netto" if str(row["salary"]).find("Net") != -1 else "brutto", axis=1)
+    df["type_of_salary"] = df["salary"].apply(lambda salary: "netto" if str(salary).find("Net") != -1 else "brutto")
     df["salary_index"] = df["salary"].str.rfind("PLN")
     df["salary"] = df.apply(
         lambda row: row["salary"][:int(row["salary_index"])] if row["salary_index"] != -1 else "",
         axis=1
     )
-    df["low_salary"] = df.apply(lambda row: str(row["salary"]).split("-")[0].replace(" ", ""), axis=1)
-    df["high_salary"] = df.apply(lambda row: str(row["salary"]).split("-")[-1].replace(" ", ""), axis=1)
+    df["low_salary"] = df["salary"].apply(lambda salary: str(salary).split("-")[0].replace(" ", ""))
+    df["high_salary"] = df["salary"].apply(lambda salary: str(salary).split("-")[-1].replace(" ", ""))
     df = df.drop(columns=["salary", "salary_index"])
 
     df["type_of_work"] = df["type_of_work"].fillna("")
@@ -179,17 +179,12 @@ def transform_links() -> None:
 
     df["employment_type_temp"] = df["employment_type"].fillna("")
     df["employment_type"] = ""
-    df["employment_type"] += df.apply(
-        lambda row: "B2B, " if "b2b" in row["employment_type_temp"] else "",
-        axis=1
+    df["employment_type"] += df["employment_type_temp"].apply(lambda emp_type: "B2B, " if "b2b" in emp_type else "")
+    df["employment_type"] += df["employment_type_temp"].apply(
+        lambda emp_type: "Umowa o pracę, " if "permanent" in emp_type else ""
     )
-    df["employment_type"] += df.apply(
-        lambda row: "Umowa o pracę, " if "permanent" in row["employment_type_temp"] else "",
-        axis=1
-    )
-    df["employment_type"] += df.apply(
-        lambda row: "Umowa zlecenie, " if "mandate" in row["employment_type_temp"] else "",
-        axis=1
+    df["employment_type"] += df["employment_type_temp"].apply(
+        lambda emp_type: "Umowa zlecenie, " if "mandate" in emp_type else ""
     )
     df["employment_type_index"] = df["employment_type"].str.rfind(",")
     df["employment_type"] = df.apply(
@@ -202,7 +197,7 @@ def transform_links() -> None:
     )
 
     df = df.drop(columns=["employment_type_temp", "employment_type_index"])
-    print(df["employment_type"].unique())
+    df.to_csv(INDEX_FILE_PATH, index=False, header=True, mode='w')
 
 
 def etl() -> None:

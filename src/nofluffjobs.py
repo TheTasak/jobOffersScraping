@@ -1,15 +1,14 @@
 import os
 import time
 
-import requests
 import pandas
 from datetime import date, datetime
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 
-import transform
-from utils import iterate_file, get_element_by_xpath
+import src.transform
+from src.utils import iterate_file, get_element_by_xpath
 
 MAX_CLICK = 10
 MAX_FILE_ITER = 5

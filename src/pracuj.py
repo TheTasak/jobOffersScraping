@@ -1,3 +1,4 @@
+import pandas as pd
 from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException, StaleElementReferenceException, TimeoutException
@@ -6,10 +7,9 @@ from selenium.webdriver.common.by import By
 import time
 import os
 from datetime import datetime, date
-import pandas
 
-import transform
-from utils import iterate_file, get_element_by_xpath
+import src.transform
+from src.utils import iterate_file, get_element_by_xpath, save_links
 
 MAX_PAGES = 100
 MAX_FILE_ITER = 10000
@@ -18,7 +18,7 @@ TRANSFORMED_FILE_PATH = f'pracuj/transformed_out-{date.today()}.csv'
 INDEX_FILE_PATH = "pracuj/index.csv"
 
 
-def scrap_links() -> None:
+def scrap_links(max_pages: int = MAX_PAGES) -> pd.DataFrame:
     driver = webdriver.Firefox()
 
     data = {
@@ -29,7 +29,7 @@ def scrap_links() -> None:
     }
 
     index = 0
-    for i in range(1, MAX_PAGES + 1):
+    for i in range(1, max_pages + 1):
         url = f'https://it.pracuj.pl/praca?pn={i}'
 
         driver.get(url)
@@ -51,24 +51,18 @@ def scrap_links() -> None:
                 data["id"].append(index)
                 data["url"].append(el_url)
                 data["created_at"].append(datetime.now())
-                data["source"].append("pracuj.pl")
+                data["source"].append("pracuj")
                 num_of_elements += 1
                 index += 1
 
         if num_of_elements == 0:
             break
 
-    df = pandas.DataFrame.from_dict(data)
-
-    path = FILE_PATH.split("/")
-    if len(path) > 1 and not os.path.exists(path[0]):
-        os.mkdir(path[0])
-    df.to_csv(FILE_PATH, index=False, mode='w')
     driver.quit()
+    return pd.DataFrame.from_dict(data)
 
 
-def remove_duplicates() -> None:
-    df = pandas.read_csv(FILE_PATH, sep=",")
+def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     rows_before = df.shape[0]
 
     df = df.drop_duplicates(subset=['url'], keep='first')
@@ -78,8 +72,8 @@ def remove_duplicates() -> None:
     df = df[df["url"].str.contains("pracodawcy.pracuj.pl") == False]
     rows_after = df.shape[0]
 
-    df.to_csv(FILE_PATH, index=False)
     print(f'Removed {rows_before - rows_after} rows')
+    return df
 
 
 def extract_posting_data(driver, data: dict, url: str, index: int) -> None:
@@ -96,20 +90,24 @@ def extract_posting_data(driver, data: dict, url: str, index: int) -> None:
     data["id"].append(index)
     data["url"].append(url)
 
-    job_title_path = '//*[@id="offer-details"]/div[1]/div[1]/div[1]/div[1]/div[2]/h1'
+    job_title_path = '//*[@data-test="text-positionName"]'
     job_title = get_element_by_xpath(driver, job_title_path)
     data["job_title"].append(job_title)
 
-    company_path = '//*[@id="offer-details"]/div[1]/div[1]/div[1]/div[1]/div[2]/h2'
+    company_path = '//*[@data-test="text-employerName"]'
     company = get_element_by_xpath(driver, company_path)
     company = company.replace('O firmie', '')
+    company = company.replace('About the company', '')
     data["company"].append(company)
 
     salary_path = '//*[@data-test="section-salary"]'
     salary = get_element_by_xpath(driver, salary_path)
     data["salary"].append(salary)
+    data["high_salary"].append("")
+    data["low_salary"].append("")
+    data["type_of_salary"].append("")
 
-    location_path = '//*[@id="offer-details"]/div[1]/div[1]/ul[1]/li[1]/div[2]'
+    location_path = '//*[@data-test="sections-benefit-workplaces"]/div[2]/div[2]'
     location = get_element_by_xpath(driver, location_path)
     data["location"].append(location)
 
@@ -121,13 +119,13 @@ def extract_posting_data(driver, data: dict, url: str, index: int) -> None:
         category = ""
     data["category"].append(category)
 
-    type_of_work_path = '//*[@id="offer-details"]/div[1]/div[1]/ul[1]/li[4]/div[2]'
+    type_of_work_path = '//*[@data-test="sections-benefit-work-schedule"]'
     type_of_work = get_element_by_xpath(driver, type_of_work_path)
-    experience_path = '//*[@id="offer-details"]/div[1]/div[1]/ul[1]/li[5]/div[2]'
+    experience_path = '//*[@data-test="sections-benefit-employment-type-name"]'
     experience = get_element_by_xpath(driver, experience_path)
-    employment_type_path = '//*[@id="offer-details"]/div[1]/div[1]/ul[1]/li[3]/div[2]'
+    employment_type_path = '//*[@data-test="sections-benefit-contracts"]'
     employment_type = get_element_by_xpath(driver, employment_type_path)
-    operating_mode_path = '//*[@id="offer-details"]/div[1]/div[1]/ul[1]/li[6]/div[2]'
+    operating_mode_path = '//*[@data-scroll-id="work-modes"]'
     operating_mode = get_element_by_xpath(driver, operating_mode_path)
 
     data["type_of_work"].append(type_of_work)
@@ -162,10 +160,50 @@ def iterate_links() -> None:
     iterate_file(FILE_PATH, TRANSFORMED_FILE_PATH, INDEX_FILE_PATH, extract_posting_data, MAX_FILE_ITER)
 
 
+def transform_links() -> None:
+    df = pd.read_csv(INDEX_FILE_PATH, sep=",")
+    df["category"] = df["category"].fillna("")
+    df["category"] = df["category"].apply(lambda cat: "" if "Aplikuj" in str(cat) else cat)
+    category_remove = [
+        'Warszawa', 'Katowice', 'Lublin', 'Poznań', 'Łomża', 'Olsztyn', 'Otomin', 'Toruń', 'Kraków', 'Łódź', 'Gdańsk',
+        'Gorzów Wielkopolski', 'Sokołów', 'Niemcy', 'Kielce', 'Koszalin', 'Świętochłowice', 'Wrocław', 'Bydgoszcz',
+        'Opacz-Kolonia', 'Łomianki', 'Bielsko-Biała', 'Kunów', 'Grudziądz', 'Poniec', 'Pszczyna', 'Sosnowiec',
+        'Trzcianka', 'Pruszcz Gdański', 'Zielona Góra', 'Siemianice', 'Tychy', 'Pietrzykowice', 'Sopot'
+    ]
+    df["category"] = df["category"].apply(lambda cat: "" if str(cat) in category_remove else cat)
+
+    df["company"] = df["company"].fillna("")
+    df["company"] = df["company"].str.replace("About the company", "")
+
+    df["experience"] = df["experience"].fillna("")
+    experience_map = {
+        "mid": "regular", "regular": "regular", "senior": "senior", "junior": "junior", "expert": "senior",
+        "ekspert": "senior", "manager": "c - level", "kierownik": "c - level", "dyrektor": "c - level",
+        "praktykant": "trainee", "menedżer": "c - level", "director": "c - level", "assistant": "junior",
+        "trainee": "trainee"
+    }
+    experience_remove = [
+        "pełny etat", "full-time"
+    ]
+
+    df["experience"] = df["experience"].apply(lambda exp: next((v for k, v in experience_map.items() if k in exp), exp))
+    print(df["experience"].unique())
+
+
 def etl() -> None:
-    scrap_links()
-    remove_duplicates()
+    # extract
+    links = scrap_links()
+    save_links(FILE_PATH, links)
+
+    links = remove_duplicates(links)
+    save_links(FILE_PATH, links)
+
     iterate_links()
+
+    # transform
+    transform_links()
+
+    # load
     status = transform.load_file_to_db(TRANSFORMED_FILE_PATH)
     print(f'LOADING PRACUJ TRANSFORM {"SUCCESSFUL" if status else "FAILED"}')
     status = transform.load_iterate_index_to_db(INDEX_FILE_PATH)

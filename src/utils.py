@@ -35,6 +35,13 @@ DEFAULT_WRITE_TEMPLATE = {
 }
 
 
+def save_links(save_file: str, data: pd.DataFrame):
+    path = save_file.split("/")
+    if len(path) > 1 and not os.path.exists(path[0]):
+        os.mkdir(path[0])
+    data.to_csv(save_file, index=False, mode='w')
+
+
 def format_time(seconds: float) -> str:
     if seconds < 60:
         return f'{round(seconds, 2)} seconds'

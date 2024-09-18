@@ -9,8 +9,8 @@ import os
 from datetime import datetime, date
 import pandas
 
-import transform
-from utils import iterate_file, get_element_by_xpath
+import src.transform
+from src.utils import iterate_file, get_element_by_xpath
 
 MAX_SCROLL = 100
 MAX_FILE_ITER = 10000
@@ -227,18 +227,17 @@ def transform_links() -> None:
     df["location"] = df["location"].str.replace("/", "")
     df["location"] = df["location"].str.strip()
 
-    df["type_of_salary"] = df.apply(lambda row: "netto" if str(row["salary"]).find("netto") != -1 else "brutto", axis=1)
+    df["type_of_salary"] = df["salary"].apply(lambda salary: "netto" if str(salary).find("netto") != -1 else "brutto")
     df["salary"] = df["salary"].str.replace("PLN\nnetto/miesiąc", "")
     df["salary"] = df["salary"].str.replace("PLN\nbrutto/miesiąc", "")
     df["salary"] = df["salary"].str.strip()
-    df["low_salary"] = df.apply(lambda row: str(row["salary"]).split("–")[0], axis=1)
-    df["high_salary"] = df.apply(lambda row: str(row["salary"]).split("–")[-1], axis=1)
+    df["low_salary"] = df["salary"].apply(lambda salary: str(salary).split("–")[0])
+    df["high_salary"] = df["salary"].apply(lambda salary: str(salary).split("–")[-1])
     df = df.drop(columns=["salary"])
 
     df["employment_type"] = df["employment_type"].fillna("")
-    df["employment_type"] = df.apply(
-        lambda row: "" if str(row["employment_type"]).find("/") != -1 else row["employment_type"],
-        axis=1
+    df["employment_type"] = df["employment_type"].apply(
+        lambda emp_type: "" if str(emp_type).find("/") != -1 else emp_type
     )
 
     df["type_of_work"] = df["type_of_work"].fillna("")
