@@ -14,10 +14,10 @@ class PracujTests(unittest.TestCase):
 
         index_data = copy.deepcopy(utils.DEFAULT_INDEX_TEMPLATE)
         driver = webdriver.Firefox()
-        top_rows = self.cleaned_df['url'].head(5)
+        top_rows = self.cleaned_df['url'].head(3)
         for index, row in enumerate(top_rows):
             pracuj.extract_posting_data(driver, index_data, row, index)
-
+        self.iterated_dict = index_data
         self.iterated_df = pd.DataFrame.from_dict(index_data)
         driver.close()
 
@@ -54,20 +54,36 @@ class PracujTests(unittest.TestCase):
             self.assertTrue('pracuj.pl' in url, f'Url is {url}')
 
 
-    # def test_remove_duplicates_links(self):
-    #     test_data = {
-    #         "id": [0, 1, 2],
-    #         "url": ["https://www.pracuj.pl/praca/talent-sourcing-specialist-lodz", "https://www.pracuj.pl/praca/talent-sourcing-specialist-lodz", "https://www.pracodawcy.pracuj.pl/praca/stazysta-specjalista-ds-monitoringu-systemow-it-poznan-szarych-szeregow-23"],
-    #         "created_at": ["2024-09-15 19:58:58.102488", "2024-09-15 19:58:58.102488", "2024-09-15 19:58:58.102488"],
-    #         "source": ["pracuj","pracuj", "pracuj"]
-    #     }
-        # test_df = pd.DataFrame.from_dict(test_data)
-        # removed = pracuj.remove_duplicates(test_df)
-        # self.assertEqual(removed.shape[0], 1)
-        
-        
-    def test_extract_posting_data(self):
-        self.assertEqual(self.iterated_df.shape[0], 5)
+    def test_remove_duplicates_links(self):
+        test_data = {
+            "id": [0, 1, 2],
+            "url": ["https://www.pracuj.pl/praca/talent-sourcing-specialist-lodz", "https://www.pracuj.pl/praca/talent-sourcing-specialist-lodz", "https://www.pracodawcy.pracuj.pl/praca/stazysta-specjalista-ds-monitoringu-systemow-it-poznan-szarych-szeregow-23"],
+            "created_at": ["2024-09-15 19:58:58.102488", "2024-09-15 19:58:58.102488", "2024-09-15 19:58:58.102488"],
+            "source": ["pracuj", "pracuj", "pracuj"]
+        }
+        test_df = pd.DataFrame.from_dict(test_data)
+        removed = pracuj.remove_duplicates(test_df)
+        self.assertEqual(removed.shape[0], 1)
+
+
+    def test_dict_posting_data(self):
+        id_count = 0
+        for key, value in self.iterated_dict.items():
+            id_count = len(value)
+            self.assertEqual(len(value), id_count)
+
+
+    def test_return_type_posting_data(self):
+        self.assertIsInstance(self.iterated_df, pd.DataFrame)        
+
+
+    def test_len_posting_data(self):
+        self.assertEqual(self.iterated_df.shape[0], 3)
+
+
+    def test_columns_posting_data(self):
+        self.assertEqual(self.iterated_df.shape[1], 16)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -233,7 +233,6 @@ def transform_links() -> None:
     df["salary"] = df["salary"].str.strip()
     df["low_salary"] = df["salary"].apply(lambda salary: str(salary).split("–")[0])
     df["high_salary"] = df["salary"].apply(lambda salary: str(salary).split("–")[-1])
-    df = df.drop(columns=["salary"])
 
     df["employment_type"] = df["employment_type"].fillna("")
     df["employment_type"] = df["employment_type"].apply(
@@ -245,6 +244,8 @@ def transform_links() -> None:
     df["type_of_work"] = df["type_of_work"].str.replace("25%", "part-time")
     df["type_of_work"] = df["type_of_work"].str.replace("50%", "part-time")
     df["type_of_work"] = df["type_of_work"].str.replace("75%", "part-time")
+
+    df["experience"] = df["experience"].fillna("")
 
     df.to_csv(INDEX_FILE_PATH, index=False, header=True, mode='w')
 

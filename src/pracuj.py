@@ -63,17 +63,18 @@ def scrap_links(max_pages: int = MAX_PAGES) -> pd.DataFrame:
 
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    rows_before = df.shape[0]
+    new_df = df.copy()
+    rows_before = new_df.shape[0]
 
-    df = df.drop_duplicates(subset=['url'], keep='first')
+    new_df = new_df.drop_duplicates(subset=['url'], keep='first')
     # Remove url parameters
-    df["url"] = df["url"].apply(lambda x: x[:x.find("?")])
+    new_df["url"] = new_df["url"].apply(lambda x: x[:x.find("?")])
     # Remove urls with wrong domain
-    df = df[df["url"].str.contains("pracodawcy.pracuj.pl") == False]
-    rows_after = df.shape[0]
+    new_df = new_df[new_df["url"].str.contains("pracodawcy.pracuj.pl") == False]
+    rows_after = new_df.shape[0]
 
-    print(f'Removed {rows_before - rows_after} rows')
-    return df
+    # print(f'Removed {rows_before - rows_after} rows')
+    return new_df
 
 
 def extract_posting_data(driver, data: dict, url: str, index: int) -> None:
@@ -180,14 +181,18 @@ def transform_links() -> None:
         "mid": "regular", "regular": "regular", "senior": "senior", "junior": "junior", "expert": "senior",
         "ekspert": "senior", "manager": "c - level", "kierownik": "c - level", "dyrektor": "c - level",
         "praktykant": "trainee", "menedżer": "c - level", "director": "c - level", "assistant": "junior",
-        "trainee": "trainee"
+        "trainee": "trainee", "asystent": "trainee"
     }
-    experience_remove = [
-        "pełny etat", "full-time"
-    ]
-
     df["experience"] = df["experience"].apply(lambda exp: next((v for k, v in experience_map.items() if k in exp), exp))
-    print(df["experience"].unique())
+
+
+    df["type_of_work"] = df["type_of_work"].fillna("")
+    type_map = {
+        "pełny etat": "full-time", "full-time": "full-time", "część etatu": "part-time", "part time": "part-time",
+        "dodatkowa": "part-time", "additional": "part-time"
+    }
+    df["type_of_work"] = df["type_of_work"].apply(lambda type: next((v for k, v in type_map.items() if k in type), type))
+    df.to_csv("check_result.csv", index=False, header=True, mode='w')
 
 
 def etl() -> None:
