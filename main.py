@@ -56,5 +56,6 @@ if __name__ == '__main__':
     # save_index(pracuj=True, solidjobs=True, justjoin=True)
     # transform.search_term("airflow", "en")
     p.transform_links()
+    # sj.transform_links()
 
 

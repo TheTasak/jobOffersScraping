@@ -35,6 +35,14 @@ DEFAULT_WRITE_TEMPLATE = {
 }
 
 
+def find_nth(haystack: str, needle: str, n: int) -> int:
+    start = haystack.find(needle)
+    while start >= 0 and n > 1:
+        start = haystack.find(needle, start+len(needle))
+        n -= 1
+    return start
+
+
 def save_links(save_file: str, data: pd.DataFrame):
     path = save_file.split("/")
     if len(path) > 1 and not os.path.exists(path[0]):
@@ -49,6 +57,14 @@ def format_time(seconds: float) -> str:
         return f'{round(seconds / 60, 2)} minutes'
     else:
         return f'{round(seconds / 3600, 2)} hours'
+
+
+def map_dict_to_column(cell: str, value_dict: dict):
+    for key, value in value_dict.items():
+        if key in cell:
+            return value
+    return cell
+
 
 
 def get_element_by_xpath(driver, path: str) -> str:

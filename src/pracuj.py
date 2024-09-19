@@ -5,11 +5,12 @@ from selenium.common.exceptions import (
 )
 from selenium.webdriver.common.by import By
 import time
+import math
 import os
 from datetime import datetime, date
 
-import src.transform
-from src.utils import iterate_file, get_element_by_xpath, save_links
+import src.transform as transform
+from src.utils import iterate_file, get_element_by_xpath, save_links, map_dict_to_column, find_nth
 
 MAX_PAGES = 100
 MAX_FILE_ITER = 10000
@@ -29,13 +30,13 @@ def scrap_links(max_pages: int = MAX_PAGES) -> pd.DataFrame:
     }
 
     index = 0
-    for i in range(1, max_pages + 1):
+    for i in range(2, max_pages + 1):
         url = f'https://it.pracuj.pl/praca?pn={i}'
 
         driver.get(url)
         driver.implicitly_wait(2)
 
-        xpath = '//*[@id="offers-list"]/div[3]/div'
+        xpath = '//*[@id="offers-list"]/div[4]/div'
         try:
             elements = driver.find_elements(By.XPATH, value=xpath)
         except (NoSuchElementException, StaleElementReferenceException) as e:
@@ -70,7 +71,7 @@ def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     # Remove url parameters
     new_df["url"] = new_df["url"].apply(lambda x: x[:x.find("?")])
     # Remove urls with wrong domain
-    new_df = new_df[new_df["url"].str.contains("pracodawcy.pracuj.pl") == False]
+    new_df = new_df[new_df["url"].astype(str).str.contains("pracodawcy.pracuj.pl") == False]
     rows_after = new_df.shape[0]
 
     # print(f'Removed {rows_before - rows_after} rows')
@@ -108,7 +109,7 @@ def extract_posting_data(driver, data: dict, url: str, index: int) -> None:
     data["low_salary"].append("")
     data["type_of_salary"].append("")
 
-    location_path = '//*[@data-test="sections-benefit-workplaces"]/div[2]/div[2]'
+    location_path = '//*[@data-test="sections-benefit-workplaces"]/div[2]/div[1]'
     location = get_element_by_xpath(driver, location_path)
     data["location"].append(location)
 
@@ -183,15 +184,55 @@ def transform_links() -> None:
         "praktykant": "trainee", "menedżer": "c - level", "director": "c - level", "assistant": "junior",
         "trainee": "trainee", "asystent": "trainee"
     }
-    df["experience"] = df["experience"].apply(lambda exp: next((v for k, v in experience_map.items() if k in exp), exp))
-
+    df["experience"] = df["experience"].apply(map_dict_to_column, args=(experience_map, ))
 
     df["type_of_work"] = df["type_of_work"].fillna("")
     type_map = {
         "pełny etat": "full-time", "full-time": "full-time", "część etatu": "part-time", "part time": "part-time",
         "dodatkowa": "part-time", "additional": "part-time"
     }
-    df["type_of_work"] = df["type_of_work"].apply(lambda type: next((v for k, v in type_map.items() if k in type), type))
+    df["type_of_work"] = df["type_of_work"].apply(map_dict_to_column, args=(type_map, ))
+
+    employment_map = {
+        "umowa o pracę": "Umowa o pracę", "b2b": "B2B", "contract of employment": "Umowa o pracę", "contract of mandate": "Umowa zlecenie",
+        "temporary staffing agreement": "Umowa o pracę", "praktyki": "Praktyki", "umowa na zastępstwo": "Umowa o pracę", "zlecenie": "Umowa zlecenie",
+        "internship": "Praktyki"
+    }
+    df["employment_type"] = df["employment_type"].apply(map_dict_to_column, args=(employment_map, ))
+
+    operating_map = {
+       "home office": "remote", "zdalna": "remote", "stacjonarna": "office", "hybrid": "hybrid", "praca hybrydowa": "hybrid", "full office": "office",
+       "mobile": "mobile", "mobilna": "mobile"
+    }
+    df["operating_mode"] = df["operating_mode"].apply(map_dict_to_column, args=(operating_map, ))
+
+    df["comma_index"] = df["location"].str.rfind(',')
+    df["location"] = df.apply(
+        lambda row: row["location"][int(row["comma_index"]) + 1:] if row["comma_index"] != -1 else row["location"],
+        axis=1
+    )
+    df["location"] = df["location"].str.replace("Company location", "")
+    df["location"] = df["location"].str.replace("Siedziba firmy", "")
+    df["location"] = df["location"].str.strip()
+    df = df.drop(columns=["comma_index"])
+    
+    df["salary_index"] = df["salary"].str.find("\n")
+    df["salary_index"] = df["salary"].apply(lambda row: find_nth(str(row), "\n", 3))
+    
+    df["salary"] = df.apply(
+        lambda row: row["salary"][find_nth(row["salary"], "\n", 1):int(row["salary_index"])] if row["salary_index"] != -1 and not math.isnan(row["salary_index"]) else row["salary"],
+        axis=1
+    )
+    df["type_of_salary"] = df["salary"].apply(lambda salary: "netto" if str(salary).find("net") != -1 else "brutto")
+    df["salary"] = df["salary"].str.replace("netto (+ VAT)", "")
+    df["salary"] = df["salary"].str.replace("net (+ VAT)", "")
+    df["salary"] = df["salary"].str.replace("brutto", "")
+    df["salary"] = df["salary"].str.replace("gross", "")
+    df["salary"] = df["salary"].str.replace("/", "")
+    df["salary"] = df["salary"].str.strip()
+    df["low_salary"] = df["salary"].apply(lambda salary: str(salary).split("–")[0])
+    df["high_salary"] = df["salary"].apply(lambda salary: str(salary).split("–")[-1])
+
     df.to_csv("check_result.csv", index=False, header=True, mode='w')
 
 
