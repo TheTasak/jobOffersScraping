@@ -10,7 +10,7 @@ from datetime import datetime, date
 import pandas
 
 import src.transform
-from src.utils import iterate_file, get_element_by_xpath
+from src.utils import iterate_file, get_element_by_xpath,map_dict_to_column
 
 MAX_SCROLL = 100
 MAX_FILE_ITER = 10000
@@ -240,10 +240,10 @@ def transform_links() -> None:
     )
 
     df["type_of_work"] = df["type_of_work"].fillna("")
-    df["type_of_work"] = df["type_of_work"].str.replace("100%", "full-time")
-    df["type_of_work"] = df["type_of_work"].str.replace("25%", "part-time")
-    df["type_of_work"] = df["type_of_work"].str.replace("50%", "part-time")
-    df["type_of_work"] = df["type_of_work"].str.replace("75%", "part-time")
+    type_map = {
+        "100%": "full-time", "75%": "part-time", "50%": "part-time", "25%": "part-time"
+    }
+    df["type_of_work"] = df["type_of_work"].apply(map_dict_to_column, args=(type_map, ))
 
     df["experience"] = df["experience"].fillna("")
 
