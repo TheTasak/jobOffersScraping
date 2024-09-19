@@ -246,10 +246,8 @@ def transform_links() -> None:
     df["type_of_work"] = df["type_of_work"].str.replace("75%", "part-time")
 
     df["experience"] = df["experience"].fillna("")
-    print(df["operating_mode"].unique())
 
-
-    # df.to_csv(INDEX_FILE_PATH, index=False, header=True, mode='w')
+    df.to_csv(INDEX_FILE_PATH, index=False, header=True, mode='w')
 
 
 def etl() -> None:
