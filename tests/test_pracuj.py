@@ -9,7 +9,7 @@ import copy
 class PracujTests(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.df = pracuj.scrap_links(max_pages=1)
+        self.df = pracuj.scrap_links(max_pages=2)
         self.cleaned_df = pracuj.remove_duplicates(self.df)
 
         index_data = copy.deepcopy(utils.DEFAULT_INDEX_TEMPLATE)
@@ -39,10 +39,11 @@ class PracujTests(unittest.TestCase):
 
 
     def test_columns_types_records_links(self):
-        self.assertIsInstance(self.df['id'].iloc[0], np.int64)
-        self.assertIsInstance(self.df['url'].iloc[0], str)
-        self.assertIsInstance(self.df['created_at'].iloc[0], pd.Timestamp)
-        self.assertIsInstance(self.df['source'].iloc[0], str)
+        for index, row in self.df.iterrows():
+            self.assertIsInstance(row["id"], np.int64)
+            self.assertIsInstance(row["url"], str)
+            self.assertIsInstance(row["created_at"], pd.Timestamp)
+            self.assertIsInstance(row["source"], str)
 
 
     def test_columns_values_records_links(self):
